@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CesiumJS Demo</title>
+    <!-- Favicon support -->
+    <link rel="apple-touch-icon" sizes="180x180" href="fav/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="fav/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="fav/favicon-16x16.png">
+    <link rel="manifest" href="fav/site.webmanifest">
+    <!-- Include the CesiumJS JavaScript and CSS files -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.131/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.131/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  </head>
+  <body>
+    <select name="droneView" id="droneView">
+      <option value="top-down">Top Down</option>
+      <option value="third-person">Third Person</option>
+      <option value="first-person">First Person</option>
+    </select>
+    <div id="cesiumContainer"></div>
+    <script type="module">
+      let parsedData;
+      fetch('./json/drone-flight.json')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('HTTP error. Status: ${response.status}');
+          }
+          return response.text();
+        })
+        .then(data => {
+          parsedData = data;
+        })
+        .catch(error => {
+          console.error('Error fetching file:', error);
+        });
+      function droneFirstPerson(clock) {
+        const currentTime = clock.currentTime;
+        const dronePosition = drone.position.getValue(currentTime);
+        const droneOrientation = drone.orientation.getValue(currentTime);
+        if (dronePosition && droneOrientation) {
+          // Calculate camera orientation based on drone orientation
+          const transform = Cesium.Matrix4.fromRotationTranslation(
+           Cesium.Matrix3.fromQuaternion(droneOrientation),
+           dronePosition
+          );
+          // Set camera in drone reference frame
+          viewer.camera.lookAtTransform(
+           transform,
+           new Cesium.HeadingPitchRange(Math.PI/2.0, 0.0, 10.0)
+          );
+        }
+      }
+      document.getElementById('droneView').onchange = function() {
+        const selectedValue = document.getElementById('droneView').value;
+        viewer.clock.multiplier = 10;
+        let camDestOrient = null;
+        viewer.trackedEntity = null;
+        viewer.clock.onTick.removeEventListener(droneFirstPerson);
+        if (selectedValue=="top-down") {
+          viewer.camera.setView({
+            destination: new Cesium.Rectangle(
+             Cesium.Math.convertLongitudeRange(Cesium.Math.toRadians(-80.42551)),
+             Cesium.Math.clampToLatitudeRange(Cesium.Math.toRadians(37.21628)),
+             Cesium.Math.convertLongitudeRange(Cesium.Math.toRadians(-80.41727)),
+             Cesium.Math.clampToLatitudeRange(Cesium.Math.toRadians(37.23548))
+            ),
+          });
+        } else if (selectedValue=="third-person") {
+          viewer.trackedEntity = drone;
+        } else if (selectedValue=="first-person") {
+          viewer.clock.multiplier = 1;
+          viewer.clock.onTick.addEventListener(droneFirstPerson);
+        } else {
+          console.log("Selected value not supported:", selectedValue);
+        }
+      }
+      Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwZmEwZTNlYi1hZmYzLTRmYzktYmQ1MC04Mzc2OTgwODI3ZjQiLCJpZCI6MzIzOTY5LCJpYXQiOjE3NTMyMDg5OTV9.b0weSy1MeXhma8mKODXX5z3is6iRdNCMkdfwFg6abhU';
+      const viewer = new Cesium.Viewer('cesiumContainer', {
+        globe: false, // comment out if realistic sky lighting is desired
+        geocoder: Cesium.IonGeocodeProviderType.GOOGLE,
+      });
+      try {
+        const tileset = await Cesium.createGooglePhotorealistic3DTileset({
+          onlyUsingWithGoogleGeocoder: true,
+        });
+        viewer.scene.primitives.add(tileset);
+      } catch (error) {
+        console.log(`Failed to load tileset: ${error}`);
+      }
+      viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere();
+      // uncomment if realistic sky lighting is desired
+      //viewer.scene.globe.enableLighting = true;
+      // Parse the JSON flight data
+      const flightData = JSON.parse(parsedData);
+      // Create a Cesium SampledPositionProperty and fill with data
+      const positionProperty = new Cesium.SampledPositionProperty();
+      for (let i = 0; i < flightData.length; i++) {
+        const flightDatum = flightData[i];
+        const time = Cesium.JulianDate.fromIso8601(flightDatum.iso8601);
+        //Cesium.JulianDate.addHours(time,4,time);
+        const posn = Cesium.Cartesian3.fromDegrees(flightDatum.longitude, flightDatum.latitude, flightDatum.height);
+        positionProperty.addSample(time, posn);
+        // Adds a flight point entity
+        viewer.entities.add({
+          position: posn,
+          point: { pixelSize: 10, color: Cesium.Color.BLUE }
+        });
+      }
+      // Start and cease times
+      const flightStart = Cesium.JulianDate.fromIso8601(flightData[0].iso8601);
+      //Cesium.JulianDate.addHours(flightStart,4,flightStart);
+      const flightCease = Cesium.JulianDate.fromIso8601(flightData[flightData.length-1].iso8601);
+      //Cesium.JulianDate.addHours(flightCease,4,flightCease);
+      // Fly to third person view by default
+      viewer.camera.flyTo({
+        destination: new Cesium.Rectangle(
+         Cesium.Math.convertLongitudeRange(Cesium.Math.toRadians(-80.42551)),
+         Cesium.Math.clampToLatitudeRange(Cesium.Math.toRadians(37.21628)),
+         Cesium.Math.convertLongitudeRange(Cesium.Math.toRadians(-80.41727)),
+         Cesium.Math.clampToLatitudeRange(Cesium.Math.toRadians(37.23548))
+        ),
+        duration: 4.0,
+      });
+      // Drone flight
+      const droneModel = await Cesium.IonResource.fromAssetId(3592952);
+      const drone = viewer.entities.add({
+        availability: new Cesium.TimeIntervalCollection([ new Cesium.TimeInterval({ start: flightStart, stop: flightCease }) ]),
+        position: positionProperty,
+        model: { uri: droneModel },
+        // Automatically compute the orientation from the position
+        orientation: new Cesium.VelocityOrientationProperty(positionProperty),    
+        path: new Cesium.PathGraphics({ width: 3 }),
+        viewFrom: new Cesium.Cartesian3(-100.0, 0.0, 50.0),
+      });
+      drone.position.setInterpolationOptions({
+        interpolationDegree: 2,
+        interpolationAlgorithm: Cesium.HermitePolynomialApproximation,
+      });
+      //viewer.trackedEntity = drone;
+      // Clock
+      viewer.clock.startTime = flightStart.clone();
+      viewer.clock.stopTime  = flightCease.clone();
+      viewer.clock.currentTime = flightStart.clone();
+      viewer.timeline.zoomTo(flightStart, flightCease);
+      viewer.clock.multiplier = 10;
+      viewer.clock.shouldAnimate = true;
+    </script>
+  </body>
+</html>

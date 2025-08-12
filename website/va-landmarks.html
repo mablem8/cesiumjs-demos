@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Virginia Landmarks</title>
+    <!-- Favicon support -->
+    <link rel="apple-touch-icon" sizes="180x180" href="fav/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="fav/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="fav/favicon-16x16.png">
+    <link rel="manifest" href="fav/site.webmanifest">
+    <!-- Include the CesiumJS JavaScript and CSS files -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.131/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.131/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  </head>
+  <body>
+    <select name="location" id="location">
+      <option value="mcafee-knob">McAfee Knob</option>
+      <option value="chesapeake-bay">Chesapeake Bay</option>
+    </select>
+    <input type="checkbox" name="lighting" id="lighting" checked>
+    <label for="lighting">Enable lighting</label>
+    <input type="checkbox" name="fog" id="fog" checked>
+    <label for="fog">Enable fog</label>
+    <input type="checkbox" name="water" id="water" checked>
+    <label for="water">Enable water effects</label>
+    <div id="cesiumContainer"></div>
+    <script type="module">
+      document.getElementById('lighting').onchange = function() {
+        viewer.scene.globe.enableLighting = !viewer.scene.globe.enableLighting;
+      }
+      document.getElementById('fog').onchange = function() {
+        viewer.scene.fog.enabled = !viewer.scene.fog.enabled;
+      }
+      document.getElementById('water').onchange = function() {
+        viewer.scene.globe.showWaterEffect = !viewer.scene.globe.showWaterEffect;
+      }
+      document.getElementById('location').onchange = function() {
+        const selectedValue = document.getElementById('location').value;
+        //console.log("Selected value:", selectedValue);
+        let camDestOrient = null;
+        if (selectedValue=="mcafee-knob") {
+          camDestOrient = {
+            destination: Cesium.Cartesian3.fromDegrees(-80.03212,37.39543,1050),
+            orientation: {
+              heading: 4.09416,
+              pitch: -0.26066,
+            }
+          }
+        } else if (selectedValue=="chesapeake-bay") {
+          camDestOrient = {
+            destination: Cesium.Cartesian3.fromDegrees(-76.36426,36.92567,1000),
+            orientation: {
+              heading: 0.75590,
+              pitch: -0.27392,
+            }
+          }
+        } else {
+          console.log("Selected value not supported:", selectedValue);
+        }
+        if (camDestOrient!=null) {
+          viewer.camera.setView(camDestOrient);
+        }
+      }
+      Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwZmEwZTNlYi1hZmYzLTRmYzktYmQ1MC04Mzc2OTgwODI3ZjQiLCJpZCI6MzIzOTY5LCJpYXQiOjE3NTMyMDg5OTV9.b0weSy1MeXhma8mKODXX5z3is6iRdNCMkdfwFg6abhU';
+      const viewer = new Cesium.Viewer('cesiumContainer', {
+        terrain: Cesium.Terrain.fromWorldTerrain({
+          requestVertexNormals: true, // enables globe lighting
+          requestWaterMask: true, // enables water effects
+        }),
+      });
+      viewer.scene.globe.enableLighting = true; // enables globe lighting
+      viewer.scene.fog.enabled = true; // enables fog
+      // Fly to McAfee Knob my default
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(-80.03212, 37.39543, 1050),
+        duration: 4.0,
+        complete: function() {
+          viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(-80.03212,37.39543,1050),
+            orientation: {
+              heading: 4.09416,
+              pitch: -0.26066,
+            }
+          })
+        }
+      });
+      // Set clock
+      viewer.clock.currentTime = Cesium.JulianDate.now();
+      viewer.clock.multiplier = 240;
+      // Start the scene
+      viewer.clock.shouldAnimate = true;
+    </script>
+  </body>
+</html>

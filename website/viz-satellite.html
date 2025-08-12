@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CesiumJS Demo</title>
+    <!-- Favicon support -->
+    <link rel="apple-touch-icon" sizes="180x180" href="fav/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="fav/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="fav/favicon-16x16.png">
+    <link rel="manifest" href="fav/site.webmanifest">
+    <!-- Include the CesiumJS JavaScript and CSS files -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.131/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.131/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  </head>
+  <body>
+    <select name="camView" id="camView">
+      <option value="globe">Globe</option>
+      <option value="satellite">Satellite</option>
+    </select>
+    <div id="cesiumContainer"></div>
+    <script type="module">
+      document.getElementById('camView').onchange = function() {
+        const selectedValue = document.getElementById('camView').value;
+        viewer.trackedEntity = null;
+        if (selectedValue=='globe') {
+          viewer.camera.flyHome(0);
+        } else if (selectedValue=='satellite') {
+          viewer.trackedEntity = dataSource.entities.getById('Satellite/Landsat8');
+        } else {
+          console.log('Selected value not supported:', selectedValue);
+        }
+      }
+      Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwZmEwZTNlYi1hZmYzLTRmYzktYmQ1MC04Mzc2OTgwODI3ZjQiLCJpZCI6MzIzOTY5LCJpYXQiOjE3NTMyMDg5OTV9.b0weSy1MeXhma8mKODXX5z3is6iRdNCMkdfwFg6abhU';
+      const viewer = new Cesium.Viewer('cesiumContainer');
+      // CZML data
+      let czmlPromise = Cesium.CzmlDataSource.load('./czml/landsat8.czml');
+      const dataSource = await viewer.dataSources.add(czmlPromise);
+      // Start the scene
+      viewer.clock.shouldAnimate = true;
+    </script>
+  </body>
+</html>
